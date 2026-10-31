@@ -57,8 +57,9 @@ const WALL_COUNT = wallItems.filter(i => i.type === 'bay').length;
 const ZONE_COUNT = zoneItems.filter(i => i.type === 'bay').length;
 const ROOM_COUNT = WALL_COUNT + ZONE_COUNT;
 // inner-wall rooms are even, glass-side rooms are odd (like the real hotel: 2768 faces 2769)
-const wallNumber = i => FIRST_ROOM + 2 * i;
-const zoneNumber = j => FIRST_ROOM + 1 + 2 * j;
+// numbers go down as you walk (you walk clockwise, curving right)
+const wallNumber = i => FIRST_ROOM + 2 * (WALL_COUNT - 1 - i);
+const zoneNumber = j => FIRST_ROOM + 1 + 2 * (ZONE_COUNT - 1 - j);
 const atlasNumber = i => (i < WALL_COUNT ? wallNumber(i) : zoneNumber(i - WALL_COUNT));
 
 // ---------------------------------------------------------------------------
@@ -560,7 +561,7 @@ const LINES = {
     'Room {n}: nobody answers. Or they know you will come back in 6 minutes.',
     'Room {n}: “Housekeeping?” “No, I am just passing. Again.”',
     'Room {n}: “Are you the guy who keeps walking past every few minutes?”',
-    'Room {n}: your keycard blinks red. Wrong room.',
+    'Room {n}: not yours. Yours is {t}. Keep looking.',
     'Room {n}: a TV is playing. Someone inside is also very comfortable. Jealous.',
     'Room {n}: the Do Not Disturb sign is a polite suggestion, but the door is locked.',
     'Room {n}: someone inside says “wrong door” without opening it.',
@@ -596,18 +597,17 @@ const LINES = {
 // ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
-const startAngle = Math.atan2(player.x, player.z);
-const farRooms = doors.filter((d) => {
-  if (d.kind !== 'room') return false;
-  let da = Math.abs(Math.atan2(d.pos.x, d.pos.z) - startAngle);
-  if (da > Math.PI) da = 2 * Math.PI - da;
-  return da > 1.9 && da < 2.9;
-});
-const targetDoor = pick(farRooms);
-const targetNumber = targetDoor.number;
+// Your room does not exist: pick a believable number inside the range that no door has.
+const existing = new Set(doors.map(d => d.number));
+const maxNumber = Math.max(...existing);
+const missing = [];
+for (let n = FIRST_ROOM + Math.floor((maxNumber - FIRST_ROOM) / 2); n <= maxNumber; n++) {
+  if (!existing.has(n)) missing.push(n);
+}
+const targetNumber = missing.length ? pick(missing) : maxNumber + 1;
 
 const game = {
-  found: false, laps: 0, dist: 0, angle: 0, lastAngle: null,
+  laps: 0, dist: 0, angle: 0, lastAngle: null,
   nextDist: [500, 1000, 2000, 5000, 10000],
 };
 
@@ -636,17 +636,7 @@ const clock = { running: false, t: 0, start() { this.running = true; } };
 function interact() {
   const d = facingDoor();
   if (!d) return;
-  if (d === targetDoor) {
-    if (!game.found) {
-      game.found = true;
-      hudTarget.innerHTML = 'Your room: <b>keycard demagnetized</b>';
-      toast(`Room ${targetNumber}! Your keycard beeps... and dies after ${Math.round(game.dist)} m of walking. Go to reception to fix it. Reception is somewhere in this hallway. Probably.`, 9000);
-    } else {
-      toast('Same door. Same dead keycard. Reception is somewhere in this hallway. Probably.', 5000);
-    }
-    return;
-  }
-  toast(pick(LINES.wrong).replace('{n}', d.number));
+  toast(pick(LINES.wrong).replace('{n}', d.number).replace('{t}', targetNumber));
 }
 
 let nearDoor = null;
