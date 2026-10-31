@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hallway — find your room</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a140c; font-family: "Helvetica Neue", Arial, sans-serif; color: #fff4dc; }
+  canvas#view { display: block; width: 100vw; height: 100vh; }
+  .hidden { display: none !important; }
+
+  #hud { position: fixed; top: 14px; left: 14px; padding: 10px 14px; background: rgba(30, 20, 8, .55); border-left: 3px solid #e8b365; font-size: 14px; line-height: 1.55; backdrop-filter: blur(4px); pointer-events: none; }
+  #hud b { color: #ffd38a; font-weight: 600; }
+  #hud .big { font-size: 18px; letter-spacing: .04em; }
+
+  #crosshair { position: fixed; top: 50%; left: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255, 244, 220, .7); pointer-events: none; }
+  #prompt { position: fixed; top: 56%; left: 50%; transform: translateX(-50%); padding: 6px 14px; background: rgba(30, 20, 8, .7); border: 1px solid #e8b365; border-radius: 4px; font-size: 15px; pointer-events: none; }
+
+  #toast { position: fixed; bottom: 12%; left: 50%; transform: translateX(-50%); max-width: min(640px, 86vw); padding: 12px 20px; background: rgba(20, 12, 4, .8); border-radius: 6px; font-size: 17px; text-align: center; line-height: 1.4; opacity: 0; transition: opacity .35s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(60, 40, 15, .82), rgba(12, 8, 3, .95)); text-align: center; cursor: pointer; }
+  #overlay .card { max-width: 560px; padding: 28px 36px; }
+  #overlay h1 { margin: 0 0 6px; font-size: 44px; letter-spacing: .12em; font-weight: 300; color: #ffd38a; }
+  #overlay h2 { margin: 0 0 22px; font-size: 16px; font-weight: 400; opacity: .8; }
+  #overlay p { margin: 8px 0; line-height: 1.5; opacity: .9; }
+  #overlay .keys { margin: 22px 0; font-size: 14px; opacity: .85; line-height: 2; }
+  kbd { padding: 2px 7px; border: 1px solid #e8b365; border-radius: 4px; background: rgba(255, 211, 138, .1); font-family: inherit; font-size: 13px; }
+  #startBtn { margin-top: 10px; padding: 12px 34px; font-size: 16px; letter-spacing: .1em; color: #2a1a05; background: #ffd38a; border: 0; border-radius: 3px; cursor: pointer; }
+  #startBtn:hover { background: #ffe2ae; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="hud">
+  <div class="big" id="hudTarget">Your room: <b>----</b></div>
+  <div>Walked <b id="hudDist">0 m</b></div>
+  <div>Time in hallway <b id="hudTime">0:00</b></div>
+  <div>Nearest door <b id="hudNear">----</b></div>
+</div>
+<div id="crosshair"></div>
+<div id="prompt" class="hidden"></div>
+<div id="toast"></div>
+
+<div id="overlay">
+  <div class="card">
+    <h1>THE HALLWAY</h1>
+    <h2>A hotel corridor simulator</h2>
+    <p>You have checked in. The receptionist smiled and said:<br>Your room is “just down the hall”.</p>
+    <p>Easy. Right?</p>
+    <div class="keys">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &nbsp; <kbd>Shift</kbd> hurry &nbsp; mouse look<br>
+      <kbd>E</kbd> / click try a door &nbsp; <kbd>N</kbd> sound
+    </div>
+    <button id="startBtn">START WALKING</button>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
