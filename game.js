@@ -59,7 +59,35 @@ const ROOM_COUNT = WALL_COUNT + ZONE_COUNT;
 // inner-wall rooms are even, glass-side rooms are odd (like the real hotel: 2768 faces 2769)
 // numbers go down as you walk (you walk clockwise, curving right)
 const wallNumber = i => FIRST_ROOM + 2 * (WALL_COUNT - 1 - i);
-const zoneNumber = j => FIRST_ROOM + 1 + 2 * (ZONE_COUNT - 1 - j);
+// The glass side has fewer doors (the openings are wider than the columns), so
+// numbering it on its own drifts out of step. Instead each glass-side door takes
+// the number of the inner-wall door across from it, plus one. Walking order is
+// kept, so no two doors share a number; the inner-wall doors left without a
+// partner are the ones opposite a glass opening.
+const wallBays = wallItems.filter(i => i.type === 'bay');
+const zoneBays = zoneItems.filter(i => i.type === 'bay');
+const facing = (() => {
+  // Glass-side door j faces inner-wall door j + s, where 0 <= s <= slack and s
+  // never decreases. Pick the s for each door that lines them up best overall.
+  const slack = WALL_COUNT - ZONE_COUNT;
+  const gap = (j, i) => wrapAngle(wallBays[i].mid - zoneBays[j].mid) ** 2;
+  const cost = [], from = [];
+  for (let j = 0; j < ZONE_COUNT; j++) {
+    cost.push([]); from.push([]);
+    let prev = j ? Infinity : 0, prevS = 0;
+    for (let s = 0; s <= slack; s++) {
+      if (j && cost[j - 1][s] < prev) { prev = cost[j - 1][s]; prevS = s; }
+      cost[j][s] = gap(j, j + s) + prev;
+      from[j][s] = prevS;
+    }
+  }
+  const last = cost[ZONE_COUNT - 1];
+  let s = last.indexOf(Math.min(...last));
+  const out = [];
+  for (let j = ZONE_COUNT - 1; j >= 0; j--) { out[j] = j + s; s = from[j][s]; }
+  return out;
+})();
+const zoneNumber = j => wallNumber(facing[j]) + 1;
 const atlasNumber = i => (i < WALL_COUNT ? wallNumber(i) : zoneNumber(i - WALL_COUNT));
 
 // ---------------------------------------------------------------------------
@@ -597,17 +625,18 @@ const LINES = {
 // ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
-// Your room does not exist: pick a believable number inside the range that no door has.
-const existing = new Set(doors.map(d => d.number));
-const maxNumber = Math.max(...existing);
-const missing = [];
-for (let n = FIRST_ROOM + Math.floor((maxNumber - FIRST_ROOM) / 2); n <= maxNumber; n++) {
-  if (!existing.has(n)) missing.push(n);
-}
-const targetNumber = missing.length ? pick(missing) : maxNumber + 1;
+// Your room exists: a real door, well around the curve from where you start.
+const startAngle = Math.atan2(player.x, player.z);
+const farRooms = doors.filter((d) => {
+  if (d.kind !== 'room') return false;
+  const da = Math.abs(wrapAngle(Math.atan2(d.pos.x, d.pos.z) - startAngle));
+  return da > 1.9 && da < 2.9;
+});
+const targetDoor = pick(farRooms);
+const targetNumber = targetDoor.number;
 
 const game = {
-  laps: 0, dist: 0, angle: 0, lastAngle: null,
+  found: false, laps: 0, dist: 0, angle: 0, lastAngle: null,
   nextDist: [500, 1000, 2000, 5000, 10000],
 };
 
@@ -636,6 +665,16 @@ const clock = { running: false, t: 0, start() { this.running = true; } };
 function interact() {
   const d = facingDoor();
   if (!d) return;
+  if (d === targetDoor) {
+    if (!game.found) {
+      game.found = true;
+      hudTarget.innerHTML = `Your room: <b>${targetNumber}</b> (key: at reception)`;
+      toast(`Room ${targetNumber}! You made it, after ${Math.round(game.dist)} m. You reach for your key... You forgot your room key at reception.`, 9000);
+    } else {
+      toast('Still locked. You forgot your room key at reception.', 5000);
+    }
+    return;
+  }
   toast(pick(LINES.wrong).replace('{n}', d.number).replace('{t}', targetNumber));
 }
 
